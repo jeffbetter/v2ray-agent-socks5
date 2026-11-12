@@ -7501,7 +7501,7 @@ updateV2RayAgent() {
     echoContent skyBlue "\n进度  $1/${totalProgress} : 更新v2ray-agent脚本"
     local scriptTemp
     scriptTemp=$(mktemp /etc/v2ray-agent/.install.XXXXXX) || return 1
-    if ! wget -q -O "${scriptTemp}" "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" ||
+    if ! wget -q -O "${scriptTemp}" "https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh" ||
         [[ ! -s "${scriptTemp}" ]] || ! bash -n "${scriptTemp}"; then
         rm -f "${scriptTemp}"
         echoContent red " ---> 脚本下载或校验失败，保留当前版本"
@@ -7518,7 +7518,7 @@ updateV2RayAgent() {
     echoContent yellow " ---> 请手动执行[vasma]打开脚本"
     echoContent green " ---> 当前版本：${version}\n"
     echoContent yellow "如更新不成功，请手动执行下面命令\n"
-    echoContent skyBlue "wget -P /root -N --no-check-certificate https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh && chmod 700 /root/install.sh && /root/install.sh"
+    echoContent skyBlue "curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh && chmod 700 /root/install.sh && /root/install.sh"
     echo
     exit 0
 }
@@ -11523,6 +11523,45 @@ xrayCoreInstall() {
     showAccounts 12
 }
 
+# Personal fork: add authenticated public SOCKS5 after the normal sing-box install.
+# Reuse upstream validation, service startup, firewall journaling and rollback.
+installPersonalSocks5() {
+    local inbound=/etc/v2ray-agent/sing-box/conf/config/20_socks5_inbounds.json
+    local port=1080 credential sources attempt
+    echoContent skyBlue '\n ---> 自动配置 SOCKS5（公网 IPv4，必须使用用户名和密码）'
+    installSocks5InboundTools || return 1
+    if [[ -f "${inbound}" ]]; then
+        jq -e '.inbounds[0].users | type == "array" and length > 0 and
+          all(.[]; (.username | type == "string" and length > 0) and
+                   (.password | type == "string" and length > 0))' "${inbound}" >/dev/null || {
+            echoContent red ' ---> 已有 SOCKS5 缺少有效认证，未覆盖；请检查入站配置'
+            return 1
+        }
+    else
+        for ((attempt = 0; attempt < 30; attempt++)); do
+            socks5PortAvailable "${port}" && break
+            port=$((RANDOM % 50001 + 10000))
+        done
+        if ((attempt == 30)); then
+            echoContent red ' ---> 未找到空闲的 SOCKS5 端口'
+            return 1
+        fi
+        credential=$(/etc/v2ray-agent/sing-box/sing-box generate uuid) || return 1
+        [[ -n "${credential}" ]] || return 1
+        sources=$(normalizeSocks5Sources '0.0.0.0/0') || return 1
+        if ! commitSocks5Inbound install "${port}" "${credential}" "${sources}" ipv4_only '*' '0.0.0.0'; then
+            echoContent red ' ---> SOCKS5 自动配置失败；未报告安装成功，请检查上方错误'
+            return 1
+        fi
+    fi
+    readInstallType
+    readInstallProtocolType
+    echoContent green ' ---> SOCKS5 已就绪（下列随机 UUID 同时作为用户名和密码）'
+    jq '{listen:.inbounds[0].listen,port:.inbounds[0].listen_port,users:.inbounds[0].users}' "${inbound}" || return 1
+    socks5InboundShareConfig "${inbound}" || return 1
+    echoContent yellow ' ---> 如有云安全组，请放行上面显示的 TCP 端口；SOCKS5 本身不加密'
+}
+
 # sing-box 全部安装
 singBoxInstall() {
     readLastInstallationConfig
@@ -11558,7 +11597,8 @@ singBoxInstall() {
     handleNginx stop || return 1
     handleNginx start || return 1
     # 生成账号
-    showAccounts 9
+    showAccounts 9 || return 1
+    installPersonalSocks5
 }
 
 # 核心管理
@@ -13031,7 +13071,8 @@ menu() {
     cd "$HOME" || exit
     echoContent red "\n=============================================================="
     echoContent green "作者：mack-a"
-    echoContent green "当前版本：v3.5.41"
+    echoContent green "当前版本：v3.5.41-jeffbetter-socks5.1"
+    echoContent green "个人版本：https://github.com/jeffbetter/v2ray-agent-socks5（1.安装 → 2.sing-box 自动添加 SOCKS5）"
     echoContent green "Github：https://github.com/mack-a/v2ray-agent"
     echoContent green "描述：八合一共存脚本\c"
     showInstallStatus

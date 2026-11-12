@@ -1,4 +1,32 @@
-# v2ray-agent
+# v2ray-agent：安装 sing-box 后自动添加 SOCKS5
+
+这是 [mack-a/v2ray-agent](https://github.com/mack-a/v2ray-agent) 的个人定制版，保留原作者署名和 AGPL-3.0 许可证。
+
+## 个人版本安装步骤
+
+Ubuntu / Debian 使用 root 执行：
+
+```bash
+apt update && apt install -y curl ca-certificates &&
+curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh &&
+chmod 700 /root/install.sh && /root/install.sh
+```
+
+选择 **1.安装 → 2.sing-box**，继续按原流程设置域名、证书等。普通安装成功后，脚本自动添加 SOCKS5，不需要再进分流菜单。
+
+- 监听公网 IPv4 `0.0.0.0`，优先使用 TCP `1080`；如端口已占用，自动选择空闲高位端口。
+- 强制用户名和密码认证，每次新建入站生成随机 UUID，同时作为用户名和密码，不内置固定密码。
+- 安装结束显示端口、用户名、密码和连接 JSON。允许所有 IPv4 来源、所有目标，DNS 使用 IPv4。
+- 复用原有 sing-box 核心；配置先校验，失败时使用上游事务回滚机制恢复添加 SOCKS5 前的配置。
+- 如有云安全组，请放行安装结果显示的 TCP 端口。SOCKS5 自身不提供传输加密。
+- 可通过 `vasma → 11 → 4 → 2 → 4` 再次查看 SOCKS5 连接信息；普通重新安装会重新生成入站及账号。
+- 菜单 `17.更新脚本` 从本仓库更新，以保留定制功能。其他核心、组合安装、Reality 独立安装及 Docker 流程沿用上游行为。
+
+修改日期：2026-11-12。验证脚本：`python3 test_personal_socks5.py`。尚未进行 Linux VPS 上的域名、证书与完整安装实测。
+
+---
+
+# 上游项目说明
 
 - [感谢 JetBrains 提供的非商业开源软件开发授权](https://www.jetbrains.com/?from=v2ray-agent)
 
@@ -33,7 +61,7 @@
 ### 安装脚本版
 
 ```
-wget -P /root -N --no-check-certificate "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && chmod 700 /root/install.sh && /root/install.sh
+curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh && chmod 700 /root/install.sh && /root/install.sh
 ```
 
 ### 使用
