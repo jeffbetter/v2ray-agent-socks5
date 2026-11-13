@@ -47,13 +47,67 @@ echoContent() {
         ;;
     esac
 }
+# Prepare dependencies before reading installed configuration or opening any menu.
+prepareMenuDependencies() {
+    [[ "${EUID}" -eq 0 ]] || {
+        printf '%s\n' ' ---> 请使用 root 用户运行安装脚本' >&2
+        return 1
+    }
+    local tool
+    local -a packages=()
+    for tool in curl wget jq tar unzip socat lsof which openssl; do
+        command -v "${tool}" >/dev/null 2>&1 || packages+=("${tool}")
+    done
+    if [[ ! -s /etc/ssl/certs/ca-certificates.crt && ! -s /etc/pki/tls/certs/ca-bundle.crt ]]; then
+        packages+=(ca-certificates)
+    fi
+    [[ ${#packages[@]} -gt 0 ]] || return 0
+    printf ' ---> 自动补齐依赖：%s\n' "${packages[*]}"
+    if command -v apt-get >/dev/null 2>&1; then
+        # Debian calls the package that provides `which` debianutils.
+        for tool in "${!packages[@]}"; do
+            [[ "${packages[$tool]}" != which ]] || packages[$tool]=debianutils
+        done
+        apt-get update && apt-get install -y "${packages[@]}" || return 1
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y "${packages[@]}" || return 1
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y "${packages[@]}" || return 1
+    elif command -v apk >/dev/null 2>&1; then
+        apk add --no-cache "${packages[@]}" || return 1
+    else
+        printf '%s\n' ' ---> 未找到受支持的包管理器，无法自动安装依赖' >&2
+        return 1
+    fi
+    for tool in curl wget jq tar unzip socat lsof which openssl; do
+        command -v "${tool}" >/dev/null 2>&1 || {
+            printf ' ---> 依赖安装失败：%s，请检查上方包管理器日志\n' "$tool" >&2
+            return 1
+        }
+    done
+    [[ -s /etc/ssl/certs/ca-certificates.crt || -s /etc/pki/tls/certs/ca-bundle.crt ]] || {
+        printf '%s\n' ' ---> CA 证书不可用，请检查 ca-certificates 安装结果' >&2
+        return 1
+    }
+}
+
 # 检查SELinux状态
 checkCentosSELinux() {
     if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" == "Enforcing" ]; then
-        echoContent yellow "# 注意事项"
-        echoContent yellow "检测到SELinux已开启，请手动关闭，教程如下"
-        echoContent yellow "https://www.v2ray-agent.com/archives/1684115970026#centos-%E5%85%B3%E9%97%ADselinux"
-        exit 0
+        local answer
+        echoContent yellow ' ---> SELinux 当前为强制模式，本脚本暂不支持该模式'
+        echoContent yellow ' ---> 可临时切换为宽容模式：只记录而不拦截，降低本次开机期间的系统防护'
+        echoContent yellow ' ---> 不修改永久配置；重启后恢复强制模式，届时服务可能需要配置 SELinux 策略'
+        read -r -p '是否临时切换并继续安装？[y/N]: ' answer || return 1
+        case "$answer" in
+        y | Y)
+            setenforce 0 && [[ "$(getenforce)" == Permissive ]] || {
+                echoContent red ' ---> SELinux 模式切换失败，安装已停止'
+                return 1
+            }
+            ;;
+        *) echoContent yellow ' ---> 已保留 SELinux 强制模式，安装已停止'; return 1 ;;
+        esac
     fi
 }
 checkSystem() {
@@ -72,7 +126,7 @@ checkSystem() {
         installType='yum -y install'
         removeType='yum -y remove'
         #        upgrade="yum update -y --skip-broken"
-        checkCentosSELinux
+        checkCentosSELinux || return 1
     elif { [[ -f "/etc/issue" ]] && grep -qi "Alpine" /etc/issue; } || { [[ -f "/proc/version" ]] && grep -qi "Alpine" /proc/version; }; then
         release="alpine"
         installType='apk add'
@@ -1431,7 +1485,8 @@ cleanUp() {
     fi
 }
 initVar "$1"
-checkSystem
+prepareMenuDependencies || exit 1
+checkSystem || exit 1
 checkCPUVendor
 
 readInstallType
@@ -13080,7 +13135,7 @@ menu() {
     cd "$HOME" || exit
     echoContent red "\n=============================================================="
     echoContent green "作者：mack-a"
-    echoContent green "当前版本：v3.5.41-jeffbetter-socks5.2"
+    echoContent green "当前版本：v3.5.41-jeffbetter-socks5.3"
     echoContent green "个人版本：https://github.com/jeffbetter/v2ray-agent-socks5（1.安装 → 2.sing-box 自动添加 SOCKS5）"
     echoContent green "Github：https://github.com/mack-a/v2ray-agent"
     echoContent green "描述：八合一共存脚本\c"

@@ -4,24 +4,29 @@
 
 ## 个人版本安装步骤
 
-Ubuntu / Debian 使用 root 执行：
+Ubuntu / Debian / Rocky Linux / AlmaLinux / CentOS / Alpine 使用 root 复制整段执行一次：
 
 ```bash
-apt update && apt install -y curl ca-certificates &&
-curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh &&
-chmod 700 /root/install.sh && /root/install.sh
-```
-
-Rocky Linux / AlmaLinux 使用 root 执行：
-
-```bash
-dnf install -y curl ca-certificates &&
-curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh &&
-chmod 700 /root/install.sh && /root/install.sh
+if command -v apt-get >/dev/null 2>&1; then
+    apt-get update && apt-get install -y curl ca-certificates bash
+elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y curl ca-certificates bash
+elif command -v yum >/dev/null 2>&1; then
+    yum install -y curl ca-certificates bash
+elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache curl ca-certificates bash
+else
+    echo '不支持的包管理器'; false
+fi &&
+curl -fL --retry 3 https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh.new &&
+bash -n /root/install.sh.new && chmod 700 /root/install.sh.new &&
+mv -f /root/install.sh.new /root/install.sh && bash /root/install.sh
 ```
 
 选择 **1.安装 → 2.sing-box**，继续按原流程设置域名、证书等。普通安装成功后，脚本自动添加 SOCKS5，不需要再进分流菜单。
 
+- 显示菜单前自动检测并批量补齐缺少的 `curl`、`wget`、`jq`、`tar`、`unzip`、`socat`、`lsof`、`which`、`openssl` 和 CA 证书；直接进入 BBR 等工具菜单也不必手动补基础依赖。包管理器失败会停止并显示日志。
+- Rocky/CentOS 等系统若开启 SELinux 强制模式，会在脚本内询问是否临时切为宽容模式；输入 `y` 继续，其他输入或无输入则停止。不会修改永久配置；重启恢复强制模式后，服务可能需要配置 SELinux 策略。
 - 监听公网 IPv4 `0.0.0.0`，优先使用 TCP `1080`；如端口已占用，自动选择空闲高位端口。
 - 强制用户名和密码认证，每次新建入站生成随机 UUID，同时作为用户名和密码，不内置固定密码。
 - 安装结束显示端口、用户名、密码、可复制的 `socks5://用户名:密码@地址:端口#名称` 导入链接，以及连接 JSON。链接支持 IPv6 和账号密码中的特殊字符；客户端需支持 `socks5://` 导入，脚本的出站菜单仍粘贴 JSON。允许所有 IPv4 来源、所有目标，DNS 使用 IPv4。
@@ -30,7 +35,7 @@ chmod 700 /root/install.sh && /root/install.sh
 - 可通过 `vasma → 11 → 4 → 2 → 4` 再次查看 SOCKS5 连接信息；普通重新安装会重新生成入站及账号。
 - 菜单 `17.更新脚本` 从本仓库更新，以保留定制功能。其他核心、组合安装、Reality 独立安装及 Docker 流程沿用上游行为。
 
-修改日期：2026-11-12。验证脚本：`python3 test_personal_socks5.py`。尚未进行 Linux VPS 上的域名、证书与完整安装实测。
+修改日期：2026-11-12。验证脚本：`python3 -m unittest test_personal_socks5 test_install_preflight`。尚未进行 Linux VPS 上的域名、证书与完整安装实测。
 
 ---
 
