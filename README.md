@@ -4,24 +4,13 @@
 
 ## 个人版本安装步骤
 
-Ubuntu / Debian / Rocky Linux / AlmaLinux / CentOS / Alpine 使用 root 复制整段执行一次：
+Ubuntu / Debian / Rocky Linux / AlmaLinux / CentOS 使用 root 执行这一条即可：
 
 ```bash
-if command -v apt-get >/dev/null 2>&1; then
-    apt-get update && apt-get install -y wget ca-certificates bash
-elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y wget ca-certificates bash
-elif command -v yum >/dev/null 2>&1; then
-    yum install -y wget ca-certificates bash
-elif command -v apk >/dev/null 2>&1; then
-    apk add --no-cache wget ca-certificates bash
-else
-    echo '不支持的包管理器'; false
-fi &&
-wget --tries=3 --timeout=30 -O /root/install.sh.new https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh &&
-bash -n /root/install.sh.new && chmod 700 /root/install.sh.new &&
-mv -f /root/install.sh.new /root/install.sh && bash /root/install.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/start.sh)
 ```
+
+`start.sh` 是固定安装入口，自动下载并校验最新主脚本，再由主脚本补齐缺少的依赖。此短命令需要系统已有 Bash 和 curl（你当前的 Rocky 机器已经具备）。只有 wget 的机器可用 `wget -qO /tmp/v2ray-agent-start.sh https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/start.sh && sh /tmp/v2ray-agent-start.sh`；该入口也支持 Alpine。
 
 选择 **1.安装 → 2.sing-box**，继续按原流程设置域名、证书等。普通安装成功后，脚本自动添加 SOCKS5，不需要再进分流菜单。
 
