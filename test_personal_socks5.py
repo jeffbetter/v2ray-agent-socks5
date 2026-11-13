@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 import unittest
+from urllib.parse import unquote, urlsplit
 
 
 SOURCE = (Path(__file__).resolve().parent / "install.sh").read_text()
@@ -78,6 +79,33 @@ commitSocks5Inbound() {
 
     def inbound(self):
         return json.loads((self.config / "20_socks5_inbounds.json").read_text())["inbounds"][0]
+
+    def test_share_link_round_trips_credentials_and_endpoints(self):
+        for listen, endpoint, username, password in (
+            ("0.0.0.0", "140.238.66.52", "user", "secret"),
+            ("::", "2001:db8::1", "a@b:/?#%", "密 码@:#/%"),
+            ("proxy.example.com", "proxy.example.com", "user", "secret"),
+            ("2001:db8::2", "2001:db8::2", "", ""),
+        ):
+            with self.subTest(listen=listen):
+                path = self.config / "share.json"
+                path.write_text(json.dumps({"inbounds": [{"listen": listen, "listen_port": 39527,
+                    "users": [{"username": username, "password": password}]}]}))
+                script = (function("socks5InboundShareConfig") +
+                          '\nsocks5OutboundText() { printf "%s\\n" "$1"; }\n' +
+                          'getPublicIP() { printf "%s\\n" ' + shlex.quote(endpoint) + '; }\n' +
+                          'socks5InboundShareConfig ' + shlex.quote(str(path)))
+                result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                link = next(line for line in result.stdout.splitlines() if line.startswith("socks5://"))
+                parsed = urlsplit(link)
+                self.assertEqual((parsed.hostname, parsed.port), (endpoint, 39527))
+                self.assertEqual(unquote(parsed.username or ""), username)
+                self.assertEqual(unquote(parsed.password or ""), password)
+                self.assertEqual(unquote(parsed.fragment), "SOCKS5-" + endpoint)
+                exported = json.loads(result.stdout.splitlines()[-1])
+                self.assertEqual((exported["server"], exported["username"], exported["password"]),
+                                 (endpoint, username, password))
 
     def test_normal_install_adds_authenticated_socks_after_accounts(self):
         original = self.base.read_bytes()

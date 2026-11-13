@@ -12,11 +12,19 @@ curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/
 chmod 700 /root/install.sh && /root/install.sh
 ```
 
+Rocky Linux / AlmaLinux 使用 root 执行：
+
+```bash
+dnf install -y curl ca-certificates &&
+curl -fL https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh &&
+chmod 700 /root/install.sh && /root/install.sh
+```
+
 选择 **1.安装 → 2.sing-box**，继续按原流程设置域名、证书等。普通安装成功后，脚本自动添加 SOCKS5，不需要再进分流菜单。
 
 - 监听公网 IPv4 `0.0.0.0`，优先使用 TCP `1080`；如端口已占用，自动选择空闲高位端口。
 - 强制用户名和密码认证，每次新建入站生成随机 UUID，同时作为用户名和密码，不内置固定密码。
-- 安装结束显示端口、用户名、密码和连接 JSON。允许所有 IPv4 来源、所有目标，DNS 使用 IPv4。
+- 安装结束显示端口、用户名、密码、可复制的 `socks5://用户名:密码@地址:端口#名称` 导入链接，以及连接 JSON。链接支持 IPv6 和账号密码中的特殊字符；客户端需支持 `socks5://` 导入，脚本的出站菜单仍粘贴 JSON。允许所有 IPv4 来源、所有目标，DNS 使用 IPv4。
 - 复用原有 sing-box 核心；配置先校验，失败时使用上游事务回滚机制恢复添加 SOCKS5 前的配置。
 - 如有云安全组，请放行安装结果显示的 TCP 端口。SOCKS5 自身不提供传输加密。
 - 可通过 `vasma → 11 → 4 → 2 → 4` 再次查看 SOCKS5 连接信息；普通重新安装会重新生成入站及账号。

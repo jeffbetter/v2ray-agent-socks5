@@ -9112,13 +9112,22 @@ commitSocks5Inbound() (
 
 # Export only connection fields; wildcard listen addresses are not remote endpoints.
 socks5InboundShareConfig() {
-    local inbound=${1:-/etc/v2ray-agent/sing-box/conf/config/20_socks5_inbounds.json} server
+    local inbound=${1:-/etc/v2ray-agent/sing-box/conf/config/20_socks5_inbounds.json} server shareURI
     server=$(jq -er '.inbounds[0].listen' "$inbound") || return 1
     case "$server" in '::' | '0.0.0.0' | '') server=$(getPublicIP) ;; esac
     if [[ -z "$server" ]]; then
         socks5OutboundText '未获取到公网地址，请在出站手动填写地址、端口和账号密码' 'Public address unavailable; enter the address, port and credentials manually'
         return 0
     fi
+    shareURI=$(jq -er --arg server "$server" '.inbounds[0] |
+      ($server | if contains(":") and (startswith("[") | not) then "[" + . + "]" else . end) as $host |
+      (.users[0].username // "") as $user | (.users[0].password // "") as $pass |
+      "socks5://" + (if $user == "" then "" else ($user|@uri) + ":" + ($pass|@uri) + "@" end) +
+      $host + ":" + (.listen_port|tostring) + "#" + (("SOCKS5-" + $server)|@uri)' "$inbound") || return 1
+    echo
+    socks5OutboundText 'SOCKS5 导入链接（包含账号密码；客户端需支持 socks5://）：' 'SOCKS5 import link (includes credentials; requires socks5:// support):'
+    echo
+    printf '%s\n' "$shareURI"
     echo
     socks5OutboundText '复制下一整行，在添加出站的地址处粘贴（包含账号密码）：' 'Copy the entire next line into the outbound address prompt (includes credentials):'
     echo
@@ -13071,7 +13080,7 @@ menu() {
     cd "$HOME" || exit
     echoContent red "\n=============================================================="
     echoContent green "作者：mack-a"
-    echoContent green "当前版本：v3.5.41-jeffbetter-socks5.1"
+    echoContent green "当前版本：v3.5.41-jeffbetter-socks5.2"
     echoContent green "个人版本：https://github.com/jeffbetter/v2ray-agent-socks5（1.安装 → 2.sing-box 自动添加 SOCKS5）"
     echoContent green "Github：https://github.com/mack-a/v2ray-agent"
     echoContent green "描述：八合一共存脚本\c"
