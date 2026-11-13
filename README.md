@@ -8,17 +8,17 @@ Ubuntu / Debian / Rocky Linux / AlmaLinux / CentOS / Alpine 使用 root 复制�
 
 ```bash
 if command -v apt-get >/dev/null 2>&1; then
-    apt-get update && apt-get install -y curl ca-certificates bash
+    apt-get update && apt-get install -y wget ca-certificates bash
 elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y curl ca-certificates bash
+    dnf install -y wget ca-certificates bash
 elif command -v yum >/dev/null 2>&1; then
-    yum install -y curl ca-certificates bash
+    yum install -y wget ca-certificates bash
 elif command -v apk >/dev/null 2>&1; then
-    apk add --no-cache curl ca-certificates bash
+    apk add --no-cache wget ca-certificates bash
 else
     echo '不支持的包管理器'; false
 fi &&
-curl -fL --retry 3 https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh -o /root/install.sh.new &&
+wget --tries=3 --timeout=30 -O /root/install.sh.new https://raw.githubusercontent.com/jeffbetter/v2ray-agent-socks5/master/install.sh &&
 bash -n /root/install.sh.new && chmod 700 /root/install.sh.new &&
 mv -f /root/install.sh.new /root/install.sh && bash /root/install.sh
 ```
